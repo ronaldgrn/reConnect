@@ -13,7 +13,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 
-public class ClientGUI {
+class ClientGUI {
     private Socket socket;
     private PrintWriter out;
     private BufferedReader in;
@@ -26,19 +26,14 @@ public class ClientGUI {
     private Label chatDisplayBox;
     private TextBox chatInputBox;
 
-    public ClientGUI() {
+    private String chatLines;
+
+    ClientGUI() {
         try {
             socket = new Socket("localhost", 9876);
             out = new PrintWriter(socket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             stdIn = new BufferedReader(new InputStreamReader(System.in));
-
-//        ) {
-//            String userInput;
-//            while ((userInput = stdIn.readLine()) != null) {
-//                out.println(userInput);
-//                System.out.println("echo " + in.readLine());
-//            }
 
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -49,6 +44,10 @@ public class ClientGUI {
     }
 
 
+    /*
+     * Sends message to the server.
+     * Handles client-side tags such as #clear
+     */
     private Runnable sendMessage = new Runnable() {
         @Override
         public void run() {
@@ -56,22 +55,35 @@ public class ClientGUI {
             chatInputBox.setText("");
             window.setFocusedInteractable(chatInputBox);
 
+            /*
+             * Give user ability to clear chat with #clear
+             */
+            if(line.equals("#clear") && (chatDisplayBox != null)){
+                chatLines = "";
+                chatDisplayBox.setText(chatLines);
+                return;
+            }
+
             // System.out.println(line);
             out.println(line);
         }
     };
 
+    /*
+     * When all elements are ready, get input from Socket
+     */
     private Runnable getMessages = new Runnable() {
         @Override
         public void run() {
             try {
-                String chatLines = "";
+                chatLines = "";
 
                 while (true) {
                     if(in.ready() && (chatDisplayBox != null) ) {   // ensure all elements are ready
                         // System.out.println("echo " + in.readLine());
 
                         String line = in.readLine();
+
                         chatLines += line + "\n";
                         chatDisplayBox.setText(chatLines);
                     }
@@ -82,7 +94,12 @@ public class ClientGUI {
         }
     };
 
-    public void start(){
+    /*
+     * Main Layout. Consists of 2 BorderLayouts
+     * topPanel - consists of the Message Display window
+     * bottomPanel - consists of the inputbox & submit button
+     */
+    void start(){
         DefaultTerminalFactory defaultTerminalFactory = new DefaultTerminalFactory();
         Terminal terminal = null;
         Screen screen = null;
@@ -139,14 +156,13 @@ public class ClientGUI {
         } catch (IOException e) {
             System.out.println("Error creating terminal");
         } finally {
-
-//            if(terminal != null){
-//                try {
-//                    terminal.close();
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
+            if(terminal != null){
+                try {
+                    terminal.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 }

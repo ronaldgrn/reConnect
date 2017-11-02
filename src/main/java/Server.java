@@ -1,41 +1,38 @@
-import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
-import com.googlecode.lanterna.terminal.Terminal;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
+/*
+ * A RELIABLE Emergency communication platform
+  */
 public class Server {
-    // A RELIABLE Emergency communication platform
-    private static int PORT = 9876;
+    private static Logger logger;
+    private static final int PORT = 9876;
+    private static ArrayList<DisasterRoom> rooms;
     private static ArrayList<String> bannedIps;
 
     public static void main(String args[]) {
+        logger = new Logger("reConnect.log");
+
+        rooms = new ArrayList<>();
         bannedIps = new ArrayList<>();
 
-        DisasterRoom maria = new DisasterRoom();
-
+        DisasterRoom home = new DisasterRoom("Default");
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
 
         try {
             ServerSocket welcomeSocket = new ServerSocket(PORT);
 
-            // create DisasterRooms
-            (new Thread(maria)).start();
+            // create default DisasterRoom
+            new Thread(home).start();
 
-            /* Runnable which allocates connected clients to Disaster rooms */
-            Runnable channelAllocator = new Runnable() {
+            Runnable manage = new Runnable() {
                 @Override
                 public void run() {
-                    while (true) {
-                        try {
-                            // Special Feature: create a new thread for each connecting client
+                    try {
+                        while (true) {
                             Socket socket = welcomeSocket.accept();
+
                             if(bannedIps.contains(socket.getInetAddress().getHostAddress() ) ){
                                 // User banned, close socket
                                 System.out.println("Banned User detected: " + socket.getInetAddress().getHostAddress());
@@ -43,22 +40,24 @@ public class Server {
                                 continue;
                             }
 
-                            maria.addClient(socket);
-                            System.out.println("Adding new client to Maria");
-                        } catch (IOException e) {
-                            e.printStackTrace();
+                            new Thread(new ChannelAllocator(socket, rooms)).start();
                         }
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 }
             };
-            (new Thread(channelAllocator)).start();
+            new Thread(manage).start();
 
-            // Parse data entered on the server
+            /* Parse data entered on the server */
             String adminInput;
             while (true) {
                 while ((adminInput = stdIn.readLine()) != null) {
                     if (adminInput.equals("#exit")){
-                        // close program
+                        /*
+                         * Ends server service
+                         * Usage: #exit
+                         */
                         return;
                     }else if(adminInput.startsWith("#banuser")){
                         /*
@@ -66,12 +65,16 @@ public class Server {
                          * Usage: #banuser 56789
                          */
                         String targetUser = adminInput.substring(8).trim();
-                        if(maria.kickClient(Integer.parseInt(targetUser))){
-                            maria.messageClients("User Kicked");
-                        }else{
-                            System.out.println("Kick Failed");
+                        try {
+                            if (home.kickClient(Integer.parseInt(targetUser))) {
+                                home.messageClients("User Kicked");
+                            } else {
+                                System.out.println("Kick Failed");
+                            }
+                        } catch (NumberFormatException e) {
+                            System.out.println("Invalid User, please enter identifier");
                         }
-                        return;
+                        continue;
                     }else if(adminInput.startsWith("#banip")){
                         /*
                          * Ban a specific IP
@@ -79,17 +82,27 @@ public class Server {
                          */
                         String targetIp = adminInput.substring(6).trim();
                         bannedIps.add(targetIp);    // ban ip from connecting
-                        maria.banIP(targetIp);      // close current connections
+                        home.banIP(targetIp);      // close current connections
                         System.out.println("IP successfully banned");
-                        return;
+                        continue;
+                    }else if(adminInput.startsWith("#create")){
+                        /*
+                         * Create a new room and add to room array
+                         * Usage: #create Maria
+                         */
+                        String roomName = adminInput.substring(7).trim();
+                        DisasterRoom room = new DisasterRoom(roomName);
+                        rooms.add(room);
+                        (new Thread(room)).start();
+                        System.out.println("Room created");
+                        logger.log("Room created: " + roomName);
+                        continue;
                     }
 
                     System.out.println(">> " + adminInput);
-                    maria.messageClients(adminInput, "ADMIN");
-                    // System.out.println("echo: " + in.readLine());
+                    home.messageClients(adminInput, "ADMIN");
                 }
             }
-
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -98,99 +111,68 @@ public class Server {
 }
 
 
-class DisasterRoom implements Runnable {
-    private CopyOnWriteArrayList<Socket> sockets;   // for ConcurrentModificationException
-    private ConcurrentHashMap<Integer, String> nameMap;
+/* Class which allocates connected clients to a specified disaster room */
+class ChannelAllocator implements Runnable {
+    private ArrayList<DisasterRoom> rooms;
+    private Socket socket;
 
-    DisasterRoom() {
-        this.sockets = new CopyOnWriteArrayList<>();
-        this.nameMap = new ConcurrentHashMap<>();
+    ChannelAllocator(Socket socket, ArrayList<DisasterRoom> rooms) {
+        this.socket = socket;
+        this.rooms = rooms;
     }
 
     @Override
     public void run() {
-        /* main task of class, iterates over Sockets and checks for new messages */
-        while (true) {
-            try {
-                for (Socket socket : sockets) {
-                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    String line;
+        try {
+            /*
+             * New client joined, look for #join message and allocate to channel/room
+             */
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            PrintWriter pw = new PrintWriter(socket.getOutputStream(), true);
+            Boolean allocated = false;
 
-                    while (in.ready()) {
-                        line = in.readLine();
-                        Integer identifier = socket.getPort();
+            pw.println("Welcome to reConnect");
+            pw.println("Available Channels " + this.rooms.toString());
+            while (!allocated) {
+                if (in.ready()) {
+                    String line = in.readLine();
 
-                        // Detect and handle special commands #setname etc
-                        if(line.charAt(0) == '#'){
-                            if(line.substring(0, 8).equals("#setname")){
-                                String name = line.substring(8).trim();
-                                this.messageClients("User " + identifier.toString() + " has set name to " + name);
-                                this.nameMap.put(identifier, name);
-                                continue;
+                    if (line.startsWith("#join")) {
+                        /*
+                         * Join new room
+                         * Usage #join roomName
+                         */
+                        String targetChannel = line.substring(5).trim();
+
+                        for (DisasterRoom room : rooms) {
+                            if (room.getName().equals(targetChannel)) {
+                                room.addClient(socket);
+                                allocated = true;
+                                break;
                             }
                         }
-
-                        this.messageClients(line, identifier);
+                        if (!allocated) {
+                            System.out.printf("Requested room '%s' not found \n", targetChannel);
+                            pw.println("Room not found");
+                            pw.println("Available Channels " + this.rooms.toString());
+                        }
+                    } else if (line.startsWith("#rooms")) {
+                        /*
+                         * Show list of available rooms
+                         */
+                        pw.println("Available Channels " + this.rooms.toString());
+                    } else {
+                        pw.println("Usage: #join channelName");
+                        // pw.close();
+                        // in.close()
                     }
                 }
-            } catch (SocketException se) {
-                System.out.println("Warning: All active sockets closed");
-                se.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
-        }
-    }
 
-    void addClient(Socket clientSocket) {
-        this.sockets.add(clientSocket);
-    }
-
-    boolean kickClient(Integer identifier){
-        // TODO: remove from nameMap if exists
-        for (Socket socket: sockets) {
-            if(socket.getPort() == identifier){
-                sockets.remove(socket);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void banIP(String ip){
-        try {
-            // Search for all instances of socket then close and remove from list
-            for (Socket socket : sockets) {
-                if (socket.getInetAddress().getHostAddress().equals(ip)) {
-                    sockets.remove(socket);
-                    socket.close();
-                }
-//                System.out.println(socket.getInetAddress());
-//                System.out.println(socket.getLocalAddress());
-            }
-        }catch (IOException e){
-            e.printStackTrace();
-        }
-    }
-    
-    void messageClients(String msg) {
-        /* Send message to all clients in channel */
-        try {
-            for (Socket socket : sockets) {
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                out.println(msg);
-            }
+//            home.addClient(socket);
+//            System.out.println("Adding new client to " + home.getName());
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    void messageClients(String msg, String tag) {
-        this.messageClients(tag + ": " + msg);
-    }
-
-    void messageClients(String msg, Integer port) {
-        String tag = this.nameMap.getOrDefault(port, String.valueOf(port));
-        this.messageClients(msg, tag);
     }
 }
