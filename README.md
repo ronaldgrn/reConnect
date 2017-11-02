@@ -1,6 +1,23 @@
 # reConnect
 A simple Java based Emergency communication system using TCP Sockets
 
+## How to execute
+##### To compile
+    mvn clean compile assembly:single
+
+
+##### To run server
+    java -cp reConnect-1.0-SNAPSHOT.jar Server
+    
+
+##### To run Client
+    java -jar reConnect-1.0-SNAPSHOT.jar
+    
+or
+
+    java -cp reConnect-1.0-SNAPSHOT.jar Client
+
+
 ## Server Commands
 > **#create** roomName
 

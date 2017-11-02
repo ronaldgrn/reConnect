@@ -17,14 +17,16 @@ public class Server {
         rooms = new ArrayList<>();
         bannedIps = new ArrayList<>();
 
-        DisasterRoom home = new DisasterRoom("Default");
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
 
         try {
             ServerSocket welcomeSocket = new ServerSocket(PORT);
 
-            // create default DisasterRoom
-            new Thread(home).start();
+
+//            //create default DisasterRoom not necessary but for easy testing
+//            DisasterRoom defaultRoom = new DisasterRoom("Default");
+//            rooms.add(defaultRoom);
+//            new Thread(defaultRoom).start();
 
             Runnable manage = new Runnable() {
                 @Override
@@ -66,10 +68,10 @@ public class Server {
                          */
                         String targetUser = adminInput.substring(8).trim();
                         try {
-                            if (home.kickClient(Integer.parseInt(targetUser))) {
-                                home.messageClients("User Kicked");
-                            } else {
-                                System.out.println("Kick Failed");
+                            for(DisasterRoom d: rooms) {
+                                if (d.kickClient(Integer.parseInt(targetUser))) {
+                                    d.messageClients("User Kicked");
+                                }
                             }
                         } catch (NumberFormatException e) {
                             System.out.println("Invalid User, please enter identifier");
@@ -82,7 +84,10 @@ public class Server {
                          */
                         String targetIp = adminInput.substring(6).trim();
                         bannedIps.add(targetIp);    // ban ip from connecting
-                        home.banIP(targetIp);      // close current connections
+                        for(DisasterRoom d: rooms) {
+                            d.banIP(targetIp);      // close current connections
+                        }
+
                         System.out.println("IP successfully banned");
                         continue;
                     }else if(adminInput.startsWith("#create")){
@@ -99,80 +104,19 @@ public class Server {
                         continue;
                     }
 
+
                     System.out.println(">> " + adminInput);
-                    home.messageClients(adminInput, "ADMIN");
-                }
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-}
-
-
-/* Class which allocates connected clients to a specified disaster room */
-class ChannelAllocator implements Runnable {
-    private ArrayList<DisasterRoom> rooms;
-    private Socket socket;
-
-    ChannelAllocator(Socket socket, ArrayList<DisasterRoom> rooms) {
-        this.socket = socket;
-        this.rooms = rooms;
-    }
-
-    @Override
-    public void run() {
-        try {
-            /*
-             * New client joined, look for #join message and allocate to channel/room
-             */
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter pw = new PrintWriter(socket.getOutputStream(), true);
-            Boolean allocated = false;
-
-            pw.println("Welcome to reConnect");
-            pw.println("Available Channels " + this.rooms.toString());
-            while (!allocated) {
-                if (in.ready()) {
-                    String line = in.readLine();
-
-                    if (line.startsWith("#join")) {
-                        /*
-                         * Join new room
-                         * Usage #join roomName
-                         */
-                        String targetChannel = line.substring(5).trim();
-
-                        for (DisasterRoom room : rooms) {
-                            if (room.getName().equals(targetChannel)) {
-                                room.addClient(socket);
-                                allocated = true;
-                                break;
-                            }
-                        }
-                        if (!allocated) {
-                            System.out.printf("Requested room '%s' not found \n", targetChannel);
-                            pw.println("Room not found");
-                            pw.println("Available Channels " + this.rooms.toString());
-                        }
-                    } else if (line.startsWith("#rooms")) {
-                        /*
-                         * Show list of available rooms
-                         */
-                        pw.println("Available Channels " + this.rooms.toString());
-                    } else {
-                        pw.println("Usage: #join channelName");
-                        // pw.close();
-                        // in.close()
+                    // all admin messages go to all rooms
+                    for(DisasterRoom d: rooms) {
+                        d.messageClients(adminInput, "ADMIN");
                     }
+
                 }
             }
 
-//            home.addClient(socket);
-//            System.out.println("Adding new client to " + home.getName());
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 }
+
