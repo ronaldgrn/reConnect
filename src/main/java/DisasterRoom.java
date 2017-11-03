@@ -8,6 +8,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 class DisasterRoom implements Runnable {
+    private static final int LATENCY = 100;   // sleep time on threads
+
     private String name;
     private Logger logger;
 
@@ -58,6 +60,13 @@ class DisasterRoom implements Runnable {
                 System.out.println("Warning: All active sockets closed");
                 se.printStackTrace();
             } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            try {
+                // Prevent server from using 100% CPU when room created
+                Thread.sleep(LATENCY);
+            } catch (InterruptedException e){
                 e.printStackTrace();
             }
         }

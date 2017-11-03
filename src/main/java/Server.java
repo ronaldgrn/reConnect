@@ -11,6 +11,7 @@ public class Server {
     private static ArrayList<DisasterRoom> rooms;
     private static ArrayList<String> bannedIps;
 
+
     public static void main(String args[]) {
         logger = new Logger("reConnect.log");
 
@@ -22,17 +23,17 @@ public class Server {
         try {
             ServerSocket welcomeSocket = new ServerSocket(PORT);
 
+            /* Create default DisasterRoom. Useful for testing */
+            //DisasterRoom defaultRoom = new DisasterRoom("Default");
+            //rooms.add(defaultRoom);
+            //new Thread(defaultRoom).start();
 
-//            //create default DisasterRoom not necessary but for easy testing
-//            DisasterRoom defaultRoom = new DisasterRoom("Default");
-//            rooms.add(defaultRoom);
-//            new Thread(defaultRoom).start();
-
-            Runnable manage = new Runnable() {
+            Runnable detectConnections = new Runnable() {
                 @Override
                 public void run() {
                     try {
                         while (true) {
+                            // .accept is blocking so we do not need to throttle thread
                             Socket socket = welcomeSocket.accept();
 
                             if(bannedIps.contains(socket.getInetAddress().getHostAddress() ) ){
@@ -45,11 +46,13 @@ public class Server {
                             new Thread(new ChannelAllocator(socket, rooms)).start();
                         }
                     } catch (IOException e) {
+                        logger.log("IO Exception during manage runnable" );
                         e.printStackTrace();
                     }
                 }
             };
-            new Thread(manage).start();
+            Thread detectConnectionsThread = new Thread(detectConnections);
+            detectConnectionsThread.start();
 
             /* Parse data entered on the server */
             String adminInput;
@@ -60,6 +63,7 @@ public class Server {
                          * Ends server service
                          * Usage: #exit
                          */
+                        System.exit(0);
                         return;
                     }else if(adminInput.startsWith("#banuser")){
                         /*

@@ -14,6 +14,8 @@ import java.net.UnknownHostException;
 import java.util.Arrays;
 
 class ClientGUI {
+    private static final int LATENCY = 100;
+
     private Socket socket;
     private PrintWriter out;
     private BufferedReader in;
@@ -86,6 +88,14 @@ class ClientGUI {
 
                         chatLines += line + "\n";
                         chatDisplayBox.setText(chatLines);
+                    }
+
+
+                    try {
+                        Thread.sleep(LATENCY);
+                    } catch (InterruptedException e) {
+                        System.out.println("Interrupt Detected, Closing thread");
+                        return;
                     }
                 }
             } catch (IOException e){
@@ -162,6 +172,8 @@ class ClientGUI {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+
+                chatBoxThread.interrupt();
             }
         }
     }

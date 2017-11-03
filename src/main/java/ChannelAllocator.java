@@ -7,9 +7,13 @@ import java.util.ArrayList;
 
 /*
  * Takes in a socket and list of rooms and handles the tasks involved
- *  in placing the user in the appropriate room
+ *  in placing the user in the appropriate room.
+ *
+ *  Only lives for as long as it takes to allocate user.
  */
 class ChannelAllocator implements Runnable {
+    private static final int LATENCY = 100;
+
     private ArrayList<DisasterRoom> rooms;
     private Socket socket;
 
@@ -64,6 +68,13 @@ class ChannelAllocator implements Runnable {
                         // in.close()
                     }
                 }
+
+                try {
+                    Thread.sleep(LATENCY);
+                } catch (InterruptedException e){
+                    e.printStackTrace();
+                }
+
             }
 
 //            home.addClient(socket);
