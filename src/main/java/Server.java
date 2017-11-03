@@ -54,6 +54,9 @@ public class Server {
             Thread detectConnectionsThread = new Thread(detectConnections);
             detectConnectionsThread.start();
 
+            // Server started
+            System.out.println("Welcome to reConnect v1.0");
+
             /* Parse data entered on the server */
             String adminInput;
             while (true) {
