@@ -21,9 +21,7 @@ class ClientGUI {
     private BufferedReader in;
     private BufferedReader stdIn;
 
-
     private BasicWindow window = null;
-
 
     private Label chatDisplayBox;
     private TextBox chatInputBox;
@@ -31,17 +29,24 @@ class ClientGUI {
     private String chatLines;
 
     ClientGUI() {
+        this("localhost");
+    }
+
+    ClientGUI(String ip) {
         try {
-            socket = new Socket("localhost", 9876);
+            socket = new Socket(ip, 9876);
             out = new PrintWriter(socket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             stdIn = new BufferedReader(new InputStreamReader(System.in));
 
         } catch (UnknownHostException e) {
-            e.printStackTrace();
+            System.out.println("Error: Unknown Host. \nExiting");
+            // e.printStackTrace();
+            System.exit(1);
         } catch (IOException e) {
-            System.out.println("IO Error");
-            e.printStackTrace();
+            System.out.println("Error: Unable to connect to server. \nExiting");
+            // e.printStackTrace();
+            System.exit(2);
         }
     }
 

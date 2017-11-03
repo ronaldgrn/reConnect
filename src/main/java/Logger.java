@@ -1,7 +1,4 @@
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -12,6 +9,9 @@ public class Logger {
 
     Logger(String filename){
         try {
+            if(new File("logs").mkdir()){
+                System.out.println("Log directory created");
+            }
             writer = new PrintWriter(new FileWriter("logs/" +filename, true), true);
             writer.println(getDate() + ": Logger started" );
             filelog = true;
