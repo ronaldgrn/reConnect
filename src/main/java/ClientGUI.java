@@ -91,10 +91,9 @@ class ClientGUI {
 
                         String line = in.readLine();
 
-                        chatLines += line + "\n";
+                        chatLines = line + "\n" + chatLines;
                         chatDisplayBox.setText(chatLines);
                     }
-
 
                     try {
                         Thread.sleep(LATENCY);
