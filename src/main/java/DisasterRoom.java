@@ -35,6 +35,12 @@ class DisasterRoom implements Runnable {
 
                     while (in.ready()) {
                         line = in.readLine();
+
+                        // Check if we got a blank line. Do not waste BW
+                        if(line.equals("")) {
+                            return;
+                        }
+
                         Integer identifier = socket.getPort();
 
                         // Detect and handle special commands #setname etc

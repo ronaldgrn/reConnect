@@ -26,7 +26,7 @@ class ClientGUI {
     private Label chatDisplayBox;
     private TextBox chatInputBox;
 
-    private String chatLines;
+    private StringBuilder chatLines;
 
     ClientGUI() {
         this("localhost");
@@ -66,8 +66,12 @@ class ClientGUI {
              * Give user ability to clear chat with #clear
              */
             if(line.equals("#clear") && (chatDisplayBox != null)){
-                chatLines = "";
-                chatDisplayBox.setText(chatLines);
+                chatLines = new StringBuilder();
+                chatDisplayBox.setText(chatLines.toString());
+                return;
+            }
+
+            if(line.equals("")){
                 return;
             }
 
@@ -83,7 +87,7 @@ class ClientGUI {
         @Override
         public void run() {
             try {
-                chatLines = "";
+                chatLines = new StringBuilder();
 
                 while (true) {
                     if(in.ready() && (chatDisplayBox != null) ) {   // ensure all elements are ready
@@ -91,8 +95,21 @@ class ClientGUI {
 
                         String line = in.readLine();
 
-                        chatLines = line + "\n" + chatLines;
-                        chatDisplayBox.setText(chatLines);
+                        chatLines.append(line);
+                        chatLines.append("\n");
+
+                        int chatBoxSize = chatDisplayBox.getSize().getRows();
+                        String[] chatArray = chatLines.toString().split("\n");
+
+                        // calculate where to start printing
+                        int start_position = 0;
+                        if(chatBoxSize > 0 && chatArray.length > chatBoxSize){  // chatBoxSize = 0 when first loaded
+                            start_position = chatArray.length - chatBoxSize;
+                        }
+
+                        // only display as many lines as we can
+                        String subArray[] = Arrays.copyOfRange(chatArray, start_position, chatArray.length);
+                        chatDisplayBox.setText(String.join("\n", subArray));
                     }
 
                     try {
